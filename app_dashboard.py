@@ -27,11 +27,10 @@ import sys
  #   st.stop()   # ⛔ no carga nada más
 
 # ================== CONFIGURACIÓN BASE ==================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+#BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-ARCHIVO_TESLA_BASE = os.path.join(BASE_DIR, "dashboard_tier_data_TESLA.xlsx")
-ARCHIVO_STELLANTIS_BASE = os.path.join(BASE_DIR, "dashboard_tier_data_STELLANTIS.xlsx")
-
+#ARCHIVO_TESLA_BASE = os.path.join(BASE_DIR, "dashboard_tier_data_TESLA.xlsx")
+#ARCHIVO_STELLANTIS_BASE = os.path.join(BASE_DIR, "dashboard_tier_data_STELLANTIS.xlsx")
 
 
 st.sidebar.header("📂 Carga de datos")
@@ -46,25 +45,26 @@ uploaded_file = st.sidebar.file_uploader(
     type=["xlsx"]
 )
 
-if uploaded_file is not None:
-    xls = pd.ExcelFile(uploaded_file)
-    st.success("Archivo cargado correctamente")
-else:
-    st.warning("⚠️ Sube el archivo Excel para continuar")
+if uploaded_file is None:
+    st.warning("Sube el archivo Excel para continuar")
     st.stop()
+
+xls = pd.ExcelFile(uploaded_file)  # ✅ ESTA ES LA ÚNICA
+st.success("Archivo cargado correctamente")
+
 
 
 # ================== CARGA DE DATOS ==================
-if plataforma == "TESLA":
-    archivo_base = ARCHIVO_TESLA_BASE
-else:
-    archivo_base = ARCHIVO_STELLANTIS_BASE
+#if plataforma == "TESLA":
+ #   archivo_base = ARCHIVO_TESLA_BASE
+#else:
+ #   archivo_base = ARCHIVO_STELLANTIS_BASE
 
-if uploaded_file is not None:
-    df = pd.read_excel(uploaded_file)
-    st.success(f"Datos de {plataforma} cargados correctamente")
-else:
-    df = pd.read_excel(archivo_base)
+#if uploaded_file is not None:
+ #   df = pd.read_excel(uploaded_file)
+  #  st.success(f"Datos de {plataforma} cargados correctamente")
+#else:
+ #   df = pd.read_excel(archivo_base)
     
 
 
@@ -81,7 +81,7 @@ LOGO_PATH = resource_path("aptiv_logo.png")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGO_PATH = os.path.join(BASE_DIR, "aptiv_logo.png")
 # Excel según plataforma
-archivo = "dashboard_tier_data_TESLA.xlsx"  # por defecto, cambia según plataforma
+#archivo = "dashboard_tier_data_TESLA.xlsx"  # por defecto, cambia según plataforma
 
 
 plt.rcParams.update({
@@ -233,14 +233,14 @@ with h1:
         label_visibility="collapsed"
     )
 
-archivo = (
-    "dashboard_tier_data_TESLA.xlsx"
-    if plataforma == "TESLA"
-    else "dashboard_tier_data_STELLANTIS.xlsx"
-)
+#archivo = (
+ #   "dashboard_tier_data_TESLA.xlsx"
+  #  if plataforma == "TESLA"
+   # else "dashboard_tier_data_STELLANTIS.xlsx"
+#)
 
-EXCEL = os.path.join(BASE_DIR, archivo)
-xls = pd.ExcelFile(EXCEL)
+#EXCEL = os.path.join(BASE_DIR, archivo)
+#xls = pd.ExcelFile(EXCEL)
 
 df = pd.read_excel(xls, "TIER_MAIN")
 df_cod = pd.read_excel(xls, "LE_CODIGO")
@@ -599,7 +599,7 @@ with right:
     if SHEET_HIST not in xls.sheet_names:
         st.error(
             f"No existe la hoja '{SHEET_HIST}' en el archivo "
-            f"{os.path.basename(EXCEL)}"
+            f"{uploaded_file.name}"
         )
         st.stop()
 # ================= FILA 3 =================

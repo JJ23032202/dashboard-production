@@ -238,12 +238,12 @@ def leer_le_codigo_por_semana(xls, semana_id):
 # ================= HEADER =================
 h1, h2, h3, h4 = st.columns([1.2, 1.2, 1, 1])
 
-with h1:
-    plataforma = st.selectbox(
-        "Plataforma",
-        ["TESLA", "STELLANTIS"],
-        label_visibility="collapsed"
-    )
+#with h1:
+   # plataforma = st.selectbox(
+    #    "Plataforma",
+     #   ["TESLA", "STELLANTIS"],
+      #  label_visibility="collapsed"
+   # )
 
 #archivo = (
  #   "dashboard_tier_data_TESLA.xlsx"

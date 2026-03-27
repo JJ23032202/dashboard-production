@@ -26,6 +26,45 @@ import sys
 
  #   st.stop()   # ⛔ no carga nada más
 
+# ================== CONFIGURACIÓN BASE ==================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+ARCHIVO_TESLA_BASE = os.path.join(BASE_DIR, "dashboard_tier_data_TESLA.xlsx")
+ARCHIVO_STELLANTIS_BASE = os.path.join(BASE_DIR, "dashboard_tier_data_STELLANTIS.xlsx")
+
+st.title("Dashboard Producción")
+
+st.markdown("## 📂 Actualización de archivos Excel")
+
+# ================== SELECTOR DE CLIENTE ==================
+cliente = st.selectbox(
+    "Selecciona el cliente",
+    ["TESLA", "STELLANTIS"]
+)
+
+# ================== FILE UPLOADER ==================
+uploaded_file = st.file_uploader(
+    f"Sube el Excel actualizado de {cliente} (desde OneDrive)",
+    type=["xlsx"]
+)
+
+# ================== CARGA DE DATOS ==================
+if cliente == "TESLA":
+    archivo_base = ARCHIVO_TESLA_BASE
+else:
+    archivo_base = ARCHIVO_STELLANTIS_BASE
+
+if uploaded_file is not None:
+    df = pd.read_excel(uploaded_file)
+    st.success(f"Datos de {cliente} cargados correctamente")
+else:
+    df = pd.read_excel(archivo_base)
+    st.info(f"Usando datos base de {cliente}")
+
+# ================== USO DEL DATAFRAME ==================
+st.markdown("### Vista previa de datos")
+st.dataframe(df)
+
 def resource_path(relative_path):
     """Obtiene la ruta correcta tanto en desarrollo como en .exe"""
     try:

@@ -32,21 +32,19 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ARCHIVO_TESLA_BASE = os.path.join(BASE_DIR, "dashboard_tier_data_TESLA.xlsx")
 ARCHIVO_STELLANTIS_BASE = os.path.join(BASE_DIR, "dashboard_tier_data_STELLANTIS.xlsx")
 
-st.title("Dashboard Producción")
 
-st.markdown("## 📂 Actualización de archivos Excel")
+st.sidebar.header("📂 Carga de datos")
 
-# ================== SELECTOR DE CLIENTE ==================
-cliente = st.selectbox(
+cliente = st.sidebar.selectbox(
     "Selecciona el cliente",
     ["TESLA", "STELLANTIS"]
 )
 
-# ================== FILE UPLOADER ==================
-uploaded_file = st.file_uploader(
-    f"Sube el Excel actualizado de {cliente} (desde OneDrive)",
+uploaded_file = st.sidebar.file_uploader(
+    f"Sube el Excel de {cliente}",
     type=["xlsx"]
 )
+
 
 # ================== CARGA DE DATOS ==================
 if cliente == "TESLA":

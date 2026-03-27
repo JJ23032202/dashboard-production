@@ -57,7 +57,7 @@ if uploaded_file is not None:
     st.success(f"Datos de {cliente} cargados correctamente")
 else:
     df = pd.read_excel(archivo_base)
-    st.info(f"Usando datos base de {cliente}")
+    
 
 
 def resource_path(relative_path):

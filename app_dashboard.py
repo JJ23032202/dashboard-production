@@ -61,9 +61,6 @@ else:
     df = pd.read_excel(archivo_base)
     st.info(f"Usando datos base de {cliente}")
 
-# ================== USO DEL DATAFRAME ==================
-st.markdown("### Vista previa de datos")
-st.dataframe(df)
 
 def resource_path(relative_path):
     """Obtiene la ruta correcta tanto en desarrollo como en .exe"""

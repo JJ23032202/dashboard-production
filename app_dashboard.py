@@ -33,28 +33,36 @@ ARCHIVO_TESLA_BASE = os.path.join(BASE_DIR, "dashboard_tier_data_TESLA.xlsx")
 ARCHIVO_STELLANTIS_BASE = os.path.join(BASE_DIR, "dashboard_tier_data_STELLANTIS.xlsx")
 
 
+
 st.sidebar.header("📂 Carga de datos")
 
-cliente = st.sidebar.selectbox(
-    "Selecciona el cliente",
+plataforma = st.sidebar.selectbox(
+    "Plataforma",
     ["TESLA", "STELLANTIS"]
 )
 
 uploaded_file = st.sidebar.file_uploader(
-    f"Sube el Excel de {cliente}",
+    f"Sube el Excel de {plataforma} desde OneDrive",
     type=["xlsx"]
 )
 
+if uploaded_file is not None:
+    xls = pd.ExcelFile(uploaded_file)
+    st.success("Archivo cargado correctamente")
+else:
+    st.warning("⚠️ Sube el archivo Excel para continuar")
+    st.stop()
+
 
 # ================== CARGA DE DATOS ==================
-if cliente == "TESLA":
+if plataforma == "TESLA":
     archivo_base = ARCHIVO_TESLA_BASE
 else:
     archivo_base = ARCHIVO_STELLANTIS_BASE
 
 if uploaded_file is not None:
     df = pd.read_excel(uploaded_file)
-    st.success(f"Datos de {cliente} cargados correctamente")
+    st.success(f"Datos de {plataforma} cargados correctamente")
 else:
     df = pd.read_excel(archivo_base)
     

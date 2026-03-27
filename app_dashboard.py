@@ -33,24 +33,36 @@ import sys
 #ARCHIVO_STELLANTIS_BASE = os.path.join(BASE_DIR, "dashboard_tier_data_STELLANTIS.xlsx")
 
 
+
 st.sidebar.header("📂 Carga de datos")
 
 plataforma = st.sidebar.selectbox(
-    "Plataforma",
+    "Plataforma a visualizar",
     ["TESLA", "STELLANTIS"]
 )
 
 uploaded_file = st.sidebar.file_uploader(
-    f"Sube el Excel de {plataforma} desde OneDrive",
-    type=["xlsx"]
+    f"Sube el Excel de {plataforma}",
+    type=["xlsx"],
+    key=f"uploader_{plataforma}"  # clave UNICA
 )
 
-if uploaded_file is None:
-    st.warning("Sube el archivo Excel para continuar")
+# Inicializar session_state si no existe
+if "excel_files" not in st.session_state:
+    st.session_state["excel_files"] = {}
+
+# Guardar archivo por plataforma
+if uploaded_file is not None:
+    st.session_state["excel_files"][plataforma] = uploaded_file
+    st.sidebar.success(f"Archivo de {plataforma} cargado ✅")
+
+if plataforma not in st.session_state["excel_files"]:
+    st.warning(f"Sube primero el archivo de {plataforma}")
     st.stop()
 
-xls = pd.ExcelFile(uploaded_file)  # ✅ ESTA ES LA ÚNICA
-st.success("Archivo cargado correctamente")
+uploaded_file = st.session_state["excel_files"][plataforma]
+xls = pd.ExcelFile(uploaded_file)
+
 
 
 

@@ -63,23 +63,6 @@ if plataforma not in st.session_state["excel_files"]:
 uploaded_file = st.session_state["excel_files"][plataforma]
 xls = pd.ExcelFile(uploaded_file)
 
-
-
-
-# ================== CARGA DE DATOS ==================
-#if plataforma == "TESLA":
- #   archivo_base = ARCHIVO_TESLA_BASE
-#else:
- #   archivo_base = ARCHIVO_STELLANTIS_BASE
-
-#if uploaded_file is not None:
- #   df = pd.read_excel(uploaded_file)
-  #  st.success(f"Datos de {plataforma} cargados correctamente")
-#else:
- #   df = pd.read_excel(archivo_base)
-    
-
-
 def resource_path(relative_path):
     """Obtiene la ruta correcta tanto en desarrollo como en .exe"""
     try:
@@ -146,87 +129,9 @@ def abc_line(A, B, C, col, suf=""):
 
 # ================= LECTURA DETRACTORES POR SEMANA =================
 
-def leer_detractores_por_semana(xls, semana_id):
-    df = pd.read_excel(xls, "DETRACTORES")
 
-    # Usar directamente la columna real
-    if "semana_id" not in df.columns:
-        st.error("No se encontró la columna 'semana_id' en DETRACTORES")
-        return pd.DataFrame()
-
-    # Rellenar hacia abajo por bloques
-    df["semana_id"] = df["semana_id"].ffill().astype(str).str.strip()
-
-    # Filtrar semana
-    df_sem = df[df["semana_id"] == semana_id].copy()
-    if df_sem.empty:
-        return pd.DataFrame()
-
-    # Usar la columna de concepto (segunda columna)
-    col_concepto = df.columns[1]
-
-    df_sem = df_sem.rename(columns={col_concepto: "Concepto"})
-    df_sem = df_sem.set_index("Concepto")
-    # Quitar columna tecnica
-    df_sem = df_sem.drop(columns=["semana_id"])
-
-    nuevas_columnas = []
-    ultimo_dia = None
-
-    for col in df_sem.columns:
-        if col == "%":
-            nuevas_columnas.append(f"% {ultimo_dia}")
-        else:
-            nuevas_columnas.append(col)
-            ultimo_dia = col
-
-    df_sem.columns = nuevas_columnas
-
-    cols_orden = [
-        "Lunes", "%LE TLunes",
-        "Martes", "%LE TMartes",
-        "Miercoles", "%LE Tmiercoles",
-        "Jueves", "%LE TJueves",
-        "Viernes", "%LE TViernes",
-        "Total Semana", "%LE Total"
-    ]
-    cols_presentes = [c for c in cols_orden if c in df_sem.columns]
-    df_sem = df_sem[cols_presentes]
-
-    return df_sem
 
 # ================= LECTURA % LE POR CODIGO POR SEMANA =================
-
-def leer_le_codigo_por_semana(xls, semana_id):
-    df = pd.read_excel(xls, "LE_CODIGO")
-
-    if "semana_id" not in df.columns:
-        st.error("No se encontró la columna 'semana_id' en LE_CODIGO")
-        return pd.DataFrame(), pd.DataFrame()
-
-    df["semana_id"] = df["semana_id"].ffill().astype(str).str.strip()
-
-    df_sem = df[df["semana_id"] == semana_id].copy()
-    if df_sem.empty:
-        return pd.DataFrame(), pd.DataFrame()
-
-    col_codigo = df.columns[1]
-
-    df_sem = df_sem.rename(columns={col_codigo: "Codigo"})
-    df_sem = df_sem.set_index("Codigo")
-    df_sem = df_sem.drop(columns=["semana_id"])
-    cols_orden = [
-        "Lunes",
-        "Martes",
-        "Miercoles", 
-        "Jueves", 
-        "Viernes", 
-        "Total Semana", 
-    ]
-    cols_presentes = [c for c in cols_orden if c in df_sem.columns]
-    df_sem = df_sem[cols_presentes]
-
-    return df_sem, pd.DataFrame()
 
 # ================= DATA PATH =================
 #RUTA = r"C:\Users\24tjo8\OneDrive - Aptiv\Dashboard"
@@ -399,18 +304,79 @@ with left:
         bg="#E6FF04"
     )
 
+    def card(title=6, *lines, h=100, bg="#FF893B"):
+        st.markdown(
+            f"""
+            <div style="background-color:{bg}; padding:15px; border-radius:8px; font-size:17px;">
+                <h4>{title}</h4>  
+                {'| '.join(lines)}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        
+
+    def produccion_turno(A, B, C):
+            def v(r, col):
+                return "-" if r is None or pd.isna(r[col]) else f"{int(r[col])}"
+
+            piezas = (
+                f"TA: {v(A,'pzs_const')} "
+                f"TB: {v(B,'pzs_const')} "
+                f"TC: {v(C,'pzs_const')}"
+            )
+
+            defectos = (
+                f"TA: {v(A,'defectos_acum')} "
+                f"TB: {v(B,'defectos_acum')} "
+                f"TC: {v(C,'defectos_acum')}"
+            )
+
+            dpmus = (
+                f"TA: {v(A,'dpmus')} "
+                f"TB: {v(B,'dpmus')} "
+                f"TC: {v(C,'dpmus')}"
+            )
+
+            return piezas, defectos, dpmus
+
+    def scrap_turno(A, B, C):
+                def v(r, col):
+                    return "-" if r is None or pd.isna(r[col]) else f"{int(r[col])}"
+
+                actual = (
+                    f"TA: {v(A,'scrap_actual')} "
+                    f"TB: {v(B,'scrap_actual')} "
+                    f"TC: {v(C,'scrap_actual')}"
+                )
+
+                acumulado = (
+                    f"TA: {v(A,'scrap_acum')} "
+                    f"TB: {v(B,'scrap_acum')} "
+                    f"TC: {v(C,'scrap_acum')}"
+                )
+
+                return actual, acumulado   
+
+
 
     # Producción + Target / Acum
-    p1, p2, p3 = st.columns([2, 1.3, 1])
+    p1, p2, p3 = st.columns([2, 1, 1.3])
 
     with p1:
+       
+        piezas_t, defectos_t, dpmus_t = produccion_turno(A, B, C)
+
         card(
             "Producción",
-            f"Piezas Construidas: {get_val(row,'pzs_const')}<br>"
-            f"Defectos acumulados: {get_val(row,'defectos_acum')}<br>"
-            f"DPMUs: {get_val(row,'dpmus')}",  bg="#FF893B",
-            h=109
+            f"""<span style="font-size:17px;">
+        Piezas: {piezas_t}<br>
+        Defectos: {defectos_t}<br>
+        DPMUs: {dpmus_t}</span>""",
+            bg="#FF893B",
+            h=160
         )
+
 
     with p2:
         
@@ -418,18 +384,22 @@ with left:
             "OEE", f"""<span style="font-size:20px;">
             Target: {get_val(row,'oee_target')}<br>
             Actual: {get_val(row,'oee_actual')}<br>
-            Acum: {get_val(row,'oee_acum')}<br>, </span>""", bg="#FF893B",
+            Acum: {get_val(row,'oee_acum')}<br> </span>""", bg="#FF893B",
             h=109
         )
     with p3:
         
+        scrap_act_t, scrap_acum_t = scrap_turno(A, B, C)
+
         card(
             "SCRAP",
-            f"""<span style="font-size:20px;">
-            Actual: {get_val(row,'scrap_actual')}<br>
-            Acum: {get_val(row,'scrap_acum')}</span>""", bg="#FF893B",
-            h=109
+            f"""<span style="font-size:17px;">
+        Actual: {scrap_act_t}<br>
+        Acum: {scrap_acum_t}</span>""",
+            bg="#FF893B",
+            h=145
         )
+
 # ---------- COLUMNA DERECHA (MSD) ----------
 with right:
     SHEET_HIST="LE_HISTORICO"
@@ -642,72 +612,159 @@ with c2: card("Ausentismo", f"<b>Injustificado:</b> {abc_line(A,B,C,"aus_injust"
 with c3: card("Seguridad EHSS", f"Transporte: {abc_line(A,B,C,"ehs_transporte")}",f"Incidentes: {abc_line(A,B,C,"ehs_incidentes")}")
 
 # ================= LEER DATOS SEMANALES =================
-df_det_sem = leer_detractores_por_semana(xls, semana_id)
-df_cod_sem, df_le_total = leer_le_codigo_por_semana(xls, semana_id)
+turno_tabla = st.radio(
+    "Turno",
+    ["A", "B"],
+    horizontal=True
+)
 
-# ================= FILA 4 =================# =================
-# ----- TITULOS -----
-t_l, t_r = st.columns([2.6, 1.4])
+def leer_detractores_por_semana(xls, semana_id, turno):
+    df = pd.read_excel(xls, "DETRACTORES")
 
-with t_l:
-    st.markdown("### Detractores del Día")
+    # Normalizar nombres
+    df.columns = df.columns.astype(str).str.strip()
 
-with t_r:
-    st.markdown("### % LE por Código")
+    if turno == "A":
+        base_cols = ["semana_id", "shift", "concepto"]
+        suf = ""
+    else:  # turno B
+        base_cols = ["semana_id.1", "shift .1", "concepto.1"]
+        suf = ".1"
 
+    # Tomar columnas del turno correspondiente
+    cols = base_cols + [
+        f"Lunes{suf}", f"%LE TLunes{suf}",
+        f"Martes{suf}", f"%LE TMartes{suf}",
+        f"Miercoles{suf}", f"%LE Tmiercoles{suf}",
+        f"Jueves{suf}", f"%LE TJueves{suf}",
+       f"Viernes{suf}", f"%LE TViernes{suf}",
+        f"Total Semana{suf}", f"%LE Total{suf}"
+    ]
 
-t1, t2 = st.columns([2.6, 1.4])
+    df_t = df[cols].copy()
+    df_t.columns = [
+        "semana_id", "shift", "concepto",
+        "Lunes", "%LE TLunes",
+        "Martes", "%LE TMartes",
+        "Miercoles", "%LE Tmiercoles",
+        "Jueves", "%LE TJueves",
+        "Viernes", "%LE TViernes",
+        "Total Semana", "%LE Total"
+    ]
 
-# -------- TABLA DETRACTORES --------
+    df_t["semana_id"] = df_t["semana_id"].ffill().astype(str).str.strip()
+    df_t = df_t[df_t["semana_id"] == semana_id]
+    df_t = df_t[df_t["concepto"].notna()]
 
-
-with t1:
-    if df_det_sem.empty:
-        st.warning("No hay datos para esta semana")
-    else:
-        pct_cols = [c for c in df_det_sem.columns if c.startswith("%LE")]
-        num_cols = [
-            c for c in df_det_sem.columns
-            if c not in pct_cols and df_det_sem[c].dtype != "object"
-        ]
-
-        formato = {}
-        formato.update({c: "{:.1%}" for c in pct_cols})
-        formato.update({c: "{:,.0f}" for c in num_cols})
-
-        st.dataframe(
-            df_det_sem.style.format(formato),
-            height=260,
-            use_container_width=True
-        )
+    df_t = df_t.set_index("concepto")
+    return df_t
 
 # -------- TABLA % LE POR CODIGO --------
 
-with t2:
+def leer_le_codigo_por_semana(xls, semana_id, turno):
 
-    if df_cod_sem.empty:
-        st.warning("No hay datos para esta semana")
+    df = pd.read_excel(xls, "LE_CODIGO")
+    df.columns = df.columns.astype(str).str.strip()
+
+    if turno == "A":
+        base = ["semana_id", "shift", "codigo"]
+        suf = ""
     else:
-        num_cols = [
-            c for c in df_cod_sem.columns
-            if c != "Codigo"
-        ]
+        base = ["semana_id.1", "shift.1", "codigo.1"]
+        suf = ".1"
 
-        st.dataframe(
-            df_cod_sem.style.format({c: "{:.1%}" for c in num_cols}),
-            height=240,
-            use_container_width=True
+    cols = base + [
+        f"Lunes{suf}", f"Martes{suf}",
+        f"Miercoles{suf}", f"Jueves{suf}",
+        f"Viernes{suf}", f"Total Semana{suf}"
+    ]
+
+    df_t = df[cols].copy()
+    df_t.columns = [
+        "semana_id", "shift", "codigo",
+        "Lunes", "Martes",
+        "Miercoles", "Jueves",
+        "Viernes", "Total Semana"
+    ]
+
+    df_t["semana_id"] = df_t["semana_id"].ffill().astype(str).str.strip()
+    df_t = df_t[df_t["semana_id"] == semana_id]
+    df_t = df_t[df_t["codigo"].notna()]
+
+    df_t = df_t.set_index("codigo")
+
+    for col in df_t.columns:
+        df_t[col] = pd.to_numeric(df_t[col], errors="coerce")
+
+        df_t[col] = df_t[col].apply(
+            lambda x:
+                x * 100 if pd.notna(x) and x <= 1 else
+                x * 10  if pd.notna(x) else x
         )
+
+    return df_t
+
 
     # ---- LE total% ----
+df_det_sem = leer_detractores_por_semana(xls, semana_id, turno_tabla)
+df_cod_sem= leer_le_codigo_por_semana(xls, semana_id, turno_tabla)
 
-    if not df_le_total.empty:
-        st.markdown("**LE total%**")
+t1, t2 = st.columns([2.6, 1.4])
+
+
+with t1:
+
+    st.markdown("### Detractores")
+
+    if df_det_sem.empty:
+        st.warning("Sin datos")
+    else:
+        #  QUITAR COLUMNAS NO DESEADAS
+        df_show = df_det_sem.drop(
+            columns=["semana_id", "shift"],
+            errors="ignore"
+        )
+
+        def format_det(x, es_pct=False):
+            if isinstance(x, (int, float)) and pd.notna(x):
+                return f"{x:.1f}%" if es_pct else f"{x:.1f}"
+            return x
+
+        formatos = {}
+        for col in df_show.columns:
+            es_porcentaje = col.lower().startswith("%le")
+            formatos[col] = lambda x, p=es_porcentaje: format_det(x, p)
+
         st.dataframe(
-            df_le_total.style.format({
-                "%LE Total": "{:.1%}"
-            }),
+            df_show.style.format(formatos, na_rep="-"),
             use_container_width=True
         )
+
+with t2:
+
+    st.markdown("### % LE por Código")
+
+    if df_cod_sem.empty:
+        st.warning("Sin datos")
+    else:
+        # QUITAR COLUMNAS NO DESEADAS
+        df_show = df_cod_sem.drop(
+            columns=["semana_id", "shift"],
+            errors="ignore"
+        )
+
+        def format_pct(x):
+            if isinstance(x, (int, float)) and pd.notna(x):
+                return f"{x:.1f}%"
+            return x
+
+        formatos = {col: format_pct for col in df_show.columns}
+
+        st.dataframe(
+            df_show.style.format(formatos, na_rep="-"),
+            use_container_width=True
+        )
+
+
 
 

@@ -325,7 +325,7 @@ for i, v in enumerate(df_hist["actual"]):
     if pd.notna(v):
         ax.text(
             i,
-            v - 2,
+            v - 18,
             f"{v:.1f}%",
             ha="center",
             va="top",
@@ -339,7 +339,7 @@ for i, v in enumerate(df_hist["bbp"]):
     if pd.notna(v):
         ax.text(
             i,
-            v + 1,
+            v + 8,
             f"{v:.1f}%",
             ha="center",
             fontsize=9,
@@ -378,15 +378,16 @@ ax.spines["right"].set_visible(False)
 
 # Leyenda
 leg = ax.legend(
-    loc="upper right",
+    loc="lower center",
+    bbox_to_anchor=(0.5, -0.4),
     fontsize=8,
     frameon=False,
     ncol=3
 )
 for text in leg.get_texts():
     text.set_color("white")
-
-plt.tight_layout(pad=0.3)
+plt.subplots_adjust(bottom=0.4)
+plt.tight_layout(pad=1.5)
 
 with g:
     st.pyplot(fig, use_container_width=True)

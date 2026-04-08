@@ -6,34 +6,89 @@ import os
 import matplotlib.pyplot as plt
 import signal
 import sys
-#if "start" not in st.session_state:
- #   st.session_state.start = False
 
-#if not st.session_state.start:
-    #st.markdown(
-       # """
-       # <h1 style="text-align:center;">Dashboard Producción</h1>
-        #<h3 style="text-align:center;">Semana Actual</h3>
-        #<br><br>
-        #""",
-     #   unsafe_allow_html=True
-    #)
-
-    #col1, col2, col3 = st.columns([1,2,1])
-    #with col2:
-   #     if st.button("▶ Iniciar Dashboard", use_container_width=True):
-  #          st.session_state.start = True
-
- #   st.stop()   # ⛔ no carga nada más
-
-# ================== CONFIGURACIÓN BASE ==================
-#BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-#ARCHIVO_TESLA_BASE = os.path.join(BASE_DIR, "dashboard_tier_data_TESLA.xlsx")
-#ARCHIVO_STELLANTIS_BASE = os.path.join(BASE_DIR, "dashboard_tier_data_STELLANTIS.xlsx")
+# ================= CONFIGURACIÓN DE PÁGINA =================
+st.set_page_config(page_title="TIER Dashboard", layout="wide")
 
 
+# ================= CSS GLOBAL (COMPACTO Y LETRA GRANDE) =================
+st.markdown("""
+<style>
+.block-container {
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
+}
+h1, h2, h3 {
+    margin-bottom: 0.1rem;
+}
+[data-testid="stDataFrame"] {
+    font-size: 25px;
+}
+</style>
+""", unsafe_allow_html=True)
 
+st.markdown("""
+<style>
+/* Reduce espacio superior general */
+.block-container {
+    padding-top: 0.4rem;
+}
+
+/* Reduce espacio en sidebar */
+section[data-testid="stSidebar"] > div {
+    padding-top: 0.5rem;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+# ================= FUNCIONES AUXILIARES =================
+def get_val(row, col, suf=""):
+    try:
+        v = row[col]
+        return "-" if pd.isna(v) else f"{v}{suf}"
+    except Exception:
+        return "-"
+
+def abc_line(A, B, C, col, suf=""):
+    def v(r):
+        return "-" if r is None or pd.isna(r[col]) else f"{r[col]}{suf}"
+    return f"TA: {v(A)} | TB: {v(B)} | TC: {v(C)}"
+
+
+def card(title, body, bg):
+    st.markdown(
+        f"""
+        <div style="
+            background:{bg};
+            border-radius:6px;
+            padding:8px 12px;
+            margin-bottom:6px;
+            color:#000000;
+        ">
+            <div style="
+                font-size:25px;
+                font-weight:800;
+                color:#000000;
+                margin-bottom:4px;
+            ">
+                {title}
+            </div>
+            <div style="
+                font-size:20px;
+                font-weight:700;
+                color:#000000;
+                line-height:1.3;
+            ">
+                {body}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+# ================= SIDEBAR =================
 st.sidebar.header("📂 Carga de datos")
 
 plataforma = st.sidebar.selectbox(
@@ -44,165 +99,56 @@ plataforma = st.sidebar.selectbox(
 uploaded_file = st.sidebar.file_uploader(
     f"Sube el Excel de {plataforma}",
     type=["xlsx"],
-    key=f"uploader_{plataforma}"  # clave UNICA
+    key=f"uploader_{plataforma}"
 )
-
-# Inicializar session_state si no existe
 if "excel_files" not in st.session_state:
     st.session_state["excel_files"] = {}
 
-# Guardar archivo por plataforma
 if uploaded_file is not None:
     st.session_state["excel_files"][plataforma] = uploaded_file
     st.sidebar.success(f"Archivo de {plataforma} cargado ✅")
 
+
 if plataforma not in st.session_state["excel_files"]:
-    st.warning(f"Sube primero el archivo de {plataforma}")
+
+    # Espaciador superior para bajar el mensaje
+    st.markdown("<div style='height:140px'></div>", unsafe_allow_html=True)
+
+    with st.container():
+        st.warning(f"⬆️ Sube primero el archivo de {plataforma} para continuar")
+
     st.stop()
 
+
+
 uploaded_file = st.session_state["excel_files"][plataforma]
+
 xls = pd.ExcelFile(uploaded_file)
 
-def resource_path(relative_path):
-    """Obtiene la ruta correcta tanto en desarrollo como en .exe"""
-    try:
-        base_path = sys._MEIPASS  # PyInstaller temp folder
-    except Exception:
-        base_path = os.path.abspath(".")
-
-    return os.path.join(base_path, relative_path)
-LOGO_PATH = resource_path("aptiv_logo.png")
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-LOGO_PATH = os.path.join(BASE_DIR, "aptiv_logo.png")
-# Excel según plataforma
-#archivo = "dashboard_tier_data_TESLA.xlsx"  # por defecto, cambia según plataforma
-
-
-plt.rcParams.update({
-    "figure.dpi": 140,
-    "font.size": 7
-})
-
-# ================= CONFIG =================
-st.set_page_config(page_title="TIER Dashboard", layout="wide")
-
-st.markdown("""
-<style>
-.block-container {
-    padding-top: 2.8rem;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ================= HELPERS =================
-def get_val(row, col, suf=""):
-    try:
-        v = row[col]
-        return "-" if pd.isna(v) else f"{v}{suf}"
-    except Exception:
-        return "-"
-
-def card(title, body, h=60, bg="#2FFF05F8"):
-    html = f"""
-    <div style="
-        background:{bg};
-        padding:10px;
-        border-radius:8px;
-        font-size:22px;
-        height:{h}px;
-        box-shadow:0 1px 3px rgba(0,0,0,.15);
-    ">
-        <b>{title}</b><br>{body}
-    </div>
-    """
-    components.html(html, height=h+20)
-
-def abc_line(A, B, C, col, suf=""):
-    return (
-        f"TA: {get_val(A,col,suf)} &nbsp;&nbsp; "
-        f"TB: {get_val(B,col,suf)} &nbsp;&nbsp; "
-        f"TC: {get_val(C,col,suf)}"
-    )
-
-
-
-# ================= LECTURA DETRACTORES POR SEMANA =================
-
-
-
-# ================= LECTURA % LE POR CODIGO POR SEMANA =================
-
-# ================= DATA PATH =================
-#RUTA = r"C:\Users\24tjo8\OneDrive - Aptiv\Dashboard"
-#EXCEL = os.path.join(RUTA, archivo)
-#EXCEL_TESLA = os.path.join(RUTA, "dashboard_tier_data_TESLA.xlsx")
-#EXCEL_STELLANTIS = os.path.join(RUTA, "dashboard_tier_data_STELLANTIS.xlsx")
-#BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-#LOGO_PATH = os.path.join(RUTA, "aptiv_logo.png")
-# ================= HEADER =================
-h1, h2, h3, h4 = st.columns([1.2, 1.2, 1, 1])
-
-#with h1:
-   # plataforma = st.selectbox(
-    #    "Plataforma",
-     #   ["TESLA", "STELLANTIS"],
-      #  label_visibility="collapsed"
-   # )
-
-#archivo = (
- #   "dashboard_tier_data_TESLA.xlsx"
-  #  if plataforma == "TESLA"
-   # else "dashboard_tier_data_STELLANTIS.xlsx"
-#)
-
-#EXCEL = os.path.join(BASE_DIR, archivo)
-#xls = pd.ExcelFile(EXCEL)
-
+# ================= LECTURA DE DATOS =================
 df = pd.read_excel(xls, "TIER_MAIN")
 df_cod = pd.read_excel(xls, "LE_CODIGO")
 df_det = pd.read_excel(xls, "DETRACTORES")
 
-# ================= NORMALIZE =================
 df['date'] = pd.to_datetime(df['date'], errors='coerce')
 df["shift"] = df["shift"].astype(str).str.upper().str.strip()
 
+
+today = dt.date.today()
+
 min_date = df['date'].dropna().min().date()
 max_date = df['date'].dropna().max().date()
-today=dt.date.today()
 
-if min_date <= today <= max_date:
-    default_date = today
-else:
-    default_date = max_date
+default_date = today if min_date <= today <= max_date else max_date
 
-with h2:
-
-    fecha= st.date_input(
+fecha = st.date_input(
     "Fecha",
     min_value=min_date,
     max_value=max_date,
-    value=default_date,  label_visibility="collapsed"
+    value=default_date
 )
-with h4:
-        if st.button("🚪 Salir del sistema"): os.kill(os.getpid(), signal.SIGTERM)
-# ================= SEMANA DESDE FECHA =================
-def obtener_semana_id(fecha):
-    anio, semana, _ = fecha.isocalendar()
-    return f"{anio}-W{semana:02d}"
-
-semana_id = obtener_semana_id(fecha)
-
-# DEBUG (opcional - puedes quitar después)
-st.write("Semana calculada:", semana_id)
-
-with h3:
-     st.image(LOGO_PATH, width=180)
-
-st.markdown(f"### {plataforma} – TIER GENERAL | {fecha}")
 
 
-# ================= FILTER DAY =================
 df_dia = df[df.date.dt.date == fecha]
 if df_dia.empty:
     st.stop()
@@ -211,27 +157,59 @@ A = df_dia[df_dia["shift"] == "A"].iloc[0] if not df_dia[df_dia["shift"]=="A"].e
 B = df_dia[df_dia["shift"] == "B"].iloc[0] if not df_dia[df_dia["shift"]=="B"].empty else None
 C = df_dia[df_dia["shift"] == "C"].iloc[0] if not df_dia[df_dia["shift"]=="C"].empty else None
 
-#row = B if B is not None else df_dia.iloc[0]
+row = df_dia.iloc[-1]
 
-def fila_diaria(df_dia):
-    fila = {}
+def obtener_semana_id(fecha):
+    anio, semana, _ = fecha.isocalendar()
+    return f"{anio}-W{semana:02d}"
 
-    # Sumar
-    for c in ["pzs_const", "defectos_acum", "dpmus", "scrap_acum"]:
-        fila[c] = df_dia[c].sum(skipna=True)
+semana_id = obtener_semana_id(fecha)
 
-    # Tomar último valor válido
-    for c in [
-        "le_dia_actual", "le_dia_forecast",
-        "ef_mes_actual", "ef_mes_forecast", "defectos_acum", "dpmus",
-        "oee_actual", "oee_acum", "oee_target",
-        "scrap_actual", "scrap_acum", "census_total"
-    ]:
-        fila[c] = df_dia[c].dropna().iloc[-1] if not df_dia[c].dropna().empty else None
+h1, h2 = st.columns([6, 1])
 
-    return fila
+with h1:
+    st.markdown(f"## {plataforma} – TIER GENERAL | {fecha}")
 
-row = fila_diaria(df_dia)
+with h2:
+    st.image("aptiv_logo.png", width=200)
+
+# DEBUG (opcional - puedes quitar después)
+st.write("Semana calculada:", semana_id)
+
+
+def ultimo_valor(df, col, fecha):
+    if col not in df.columns:
+        return None
+    s = df[df.date.dt.date <= fecha][col].dropna()
+    return s.iloc[-1] if not s.empty else None
+
+# Valores LE
+le_dia_actual = ultimo_valor(df, "le_dia_actual", fecha)
+le_dia_forecast = ultimo_valor(df, "le_dia_forecast", fecha)
+
+ef_mes_actual = ultimo_valor(df, "ef_mes_actual", fecha)
+ef_mes_forecast = ultimo_valor(df, "ef_mes_forecast", fecha)
+
+# OEE
+oee_actual = ultimo_valor(df, "oee_actual", fecha)
+oee_acum = ultimo_valor(df, "oee_acum", fecha)
+oee_target = ultimo_valor(df, "oee_target", fecha)
+
+# Quejas target
+quejas_target_dia = ultimo_valor(df, "quejas_target", fecha)
+quejas_actual_dia = ultimo_valor(df, "quejas_actuales", fecha)
+# ================= KPIs (10) =================
+k1,k2,k3,k4,k5= st.columns(5)
+
+with k1: card("Primera Hora🕕", abc_line(A,B,C,"des_primera_hora","%"), "#2FFF05")
+with k2: card("Última Hora🕒", abc_line(A,B,C,"des_ultima_hora","%"), "#2FFF05")
+with k3: card("% LE Turno🔂🆗", abc_line(A,B,C,"le_turno","%"), "#2FFF05")
+with k4: card("Eficiencia del Día📈☀️",f"""Actual: {le_dia_actual if le_dia_actual is not None else "-"}% |  Forecast: {le_dia_forecast if le_dia_forecast is not None else "-"}%""", "#2FFF05")
+with k5: card("Eficiencia del Mes📉📆",f"""Actual: {ef_mes_actual if ef_mes_actual is not None else "-"}% | Forecast: {ef_mes_forecast if ef_mes_forecast is not None else "-"}%""", "#2FFF05")
+
+
+
+# ================= QUEJAS + GRÁFICA =================
 
 def quejas_target_diario(df_dia):
     if "quejas_target" not in df_dia.columns:
@@ -239,377 +217,308 @@ def quejas_target_diario(df_dia):
     s = df_dia["quejas_target"].dropna()
     return s.iloc[-1] if not s.empty else None
 
+q, g = st.columns([2,3])
+
+if "quejas_codigo" in df_dia.columns:
+    qdf = df_dia[
+        df_dia["quejas_codigo"].notna() &
+        (df_dia["quejas_codigo"].astype(str).str.strip() != "")
+    ][["quejas_cuales", "quejas_codigo"]]
+
+    total_quejas = len(qdf)
+
+    qtxt = (
+        "_Sin quejas_"
+        if qdf.empty
+        else "<br>".join(
+            f"• {r.quejas_cuales} ({r.quejas_codigo})"
+            for _, r in qdf.iterrows()
+        )
+    )
+else:
+    total_quejas = 0
+    qtxt = "_Sin quejas_"
+
 quejas_target_dia = quejas_target_diario(df_dia)
 
-# ================= HISTORY =================
-hist = (
-    df[df.date.dt.date <= fecha]
-    .sort_values("date")
-    .tail(6)
-)
-
-
-# ================= FILA 1 =================
-c1,c2,c3,c4 = st.columns([1, 1, 1, 1])
-with c1: card("Desempeño Primera Hora", abc_line(A,B,C,"des_primera_hora","%"))
-with c2: card("Desempeño Última Hora", abc_line(A,B,C,"des_ultima_hora","%"))
-with c3: card("% LE por Turno", abc_line(A,B,C,"le_turno","%"))
-with c4: card("Eficiencia del dia", f"Actual: {get_val(row,'le_dia_actual','%')} |  Forecast: {get_val(row,'le_dia_forecast','%')}" )
-
-# ================= FILA 2 =================
-left, right = st.columns([1.6, 2.4])
-
-# ---------- COLUMNA IZQUIERDA ----------
-with left:
-
-    # Eficiencia del Mes
-    card(
-        "Eficiencia del Mes", f"Actual: {get_val(row,'ef_mes_actual','%')} |  Forecast: {get_val(row,'ef_mes_forecast','%')}"
-    )
-
-    # Quejas
-
-    qcols = ["quejas_cuales", "quejas_codigo"]
-
-
-    if "quejas_codigo" in df_dia.columns:
-
-        qdf = df_dia[
-            df_dia["quejas_codigo"]
-            .notna()
-            & (df_dia["quejas_codigo"].astype(str).str.strip() != "")
-        ][["quejas_cuales", "quejas_codigo"]]
-
-        total_quejas = len(qdf)
-
-        qtxt = (
-            "_Sin quejas_"
-            if qdf.empty
-            else "\n".join(
-                f"<br>• {r.quejas_cuales} {r.quejas_codigo}"
-                for _, r in qdf.iterrows()
-            )
-        )
-    else:
-        total_quejas = 0
-        qtxt = "_Sin quejas_"
-
-
-
-    card(
-        "Quejas",
-        f"Target: {quejas_target_dia if quejas_target_dia is not None else '-'}\n"
-        f"Actual: {total_quejas}\n{qtxt}",
-        h=160,
-        bg="#E6FF04"
-    )
-
-    def card(title=6, *lines, h=100, bg="#FF893B"):
-        st.markdown(
-            f"""
-            <div style="background-color:{bg}; padding:15px; border-radius:8px; font-size:17px;">
-                <h4>{title}</h4>  
-                {'| '.join(lines)}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-        
-
-    def produccion_turno(A, B, C):
-            def v(r, col):
-                return "-" if r is None or pd.isna(r[col]) else f"{int(r[col])}"
-
-            piezas = (
-                f"TA: {v(A,'pzs_const')} "
-                f"TB: {v(B,'pzs_const')} "
-                f"TC: {v(C,'pzs_const')}"
-            )
-
-            defectos = (
-                f"TA: {v(A,'defectos_acum')} "
-                f"TB: {v(B,'defectos_acum')} "
-                f"TC: {v(C,'defectos_acum')}"
-            )
-
-            dpmus = (
-                f"TA: {v(A,'dpmus')} "
-                f"TB: {v(B,'dpmus')} "
-                f"TC: {v(C,'dpmus')}"
-            )
-
-            return piezas, defectos, dpmus
-
-    def scrap_turno(A, B, C):
-                def v(r, col):
-                    return "-" if r is None or pd.isna(r[col]) else f"{int(r[col])}"
-
-                actual = (
-                    f"TA: {v(A,'scrap_actual')} "
-                    f"TB: {v(B,'scrap_actual')} "
-                    f"TC: {v(C,'scrap_actual')}"
-                )
-
-                acumulado = (
-                    f"TA: {v(A,'scrap_acum')} "
-                    f"TB: {v(B,'scrap_acum')} "
-                    f"TC: {v(C,'scrap_acum')}"
-                )
-
-                return actual, acumulado   
-
-
-
-    # Producción + Target / Acum
-    p1, p2, p3 = st.columns([2, 1, 1.3])
-
-    with p1:
-       
-        piezas_t, defectos_t, dpmus_t = produccion_turno(A, B, C)
-
-        card(
-            "Producción",
-            f"""<span style="font-size:17px;">
-        Piezas: {piezas_t}<br>
-        Defectos: {defectos_t}<br>
-        DPMUs: {dpmus_t}</span>""",
-            bg="#FF893B",
-            h=160
-        )
-
-
-    with p2:
-        
-        card(
-            "OEE", f"""<span style="font-size:20px;">
-            Target: {get_val(row,'oee_target')}<br>
-            Actual: {get_val(row,'oee_actual')}<br>
-            Acum: {get_val(row,'oee_acum')}<br> </span>""", bg="#FF893B",
-            h=109
-        )
-    with p3:
-        
-        scrap_act_t, scrap_acum_t = scrap_turno(A, B, C)
-
-        card(
-            "SCRAP",
-            f"""<span style="font-size:17px;">
-        Actual: {scrap_act_t}<br>
-        Acum: {scrap_acum_t}</span>""",
-            bg="#FF893B",
-            h=145
-        )
-
-# ---------- COLUMNA DERECHA (MSD) ----------
-with right:
-    SHEET_HIST="LE_HISTORICO"
-    df_raw = pd.read_excel(xls, SHEET_HIST)
-
-    # Primera columna = KPI (Actual / BBP / MSD)
-    df_raw = df_raw.rename(columns={df_raw.columns[0]: "KPI"})
-    df_raw = df_raw.set_index("KPI")
-
-    # Transformar a formato grafica
-    df_hist = (
-        df_raw
-        .T
-        .reset_index()
-        .rename(columns={
-            "index": "periodo",
-            "Actual": "actual",
-            "BBP": "bbp",
-            "MSD": "msd"
-        })
-    )
-
-    def tipo_periodo(p):
-        p = str(p).lower()
-        if p.startswith("wk"):
-            return "semana"
-        elif len(p) <= 4 and p.isalpha():
-            return "mes"
-        else:
-            return "dia"
-
-    df_hist["tipo"] = df_hist["periodo"].apply(tipo_periodo)
-
-    color_map = {
-        "mes": "#4ECF04",      # verde fuerte
-        "semana": "#00CC63",   # mismo verde
-        "dia": "#02F7FF"       # verde más claro
-    }
-
-    hatch_map = {
-        "mes": "",
-        "semana": "///",       # 👈 aquí se distinguen
-        "dia": ""
-    }
-
-    # Limpiar porcentajes y convertir a numerico
-
-    for c in ["actual", "bbp", "msd"]:
-        df_hist[c] = (
-        pd.to_numeric(df_hist[c], errors="coerce") * 100 )
-        df_hist[c] = pd.to_numeric(df_hist[c], errors="coerce")
-
-    # ================= GRAFICA =================
-    fig, ax = plt.subplots(figsize=(4.8, 1.6))
-    fig.patch.set_facecolor("#000000")
-    ax.set_facecolor("#000000")
-
-    x = range(len(df_hist))
-
-    # Barras - Actual
-   
-    for i, row in df_hist.iterrows():
-        ax.bar(
-            i,
-            row["actual"],
-            width=0.6,
-            color=color_map[row["tipo"]],
-            hatch=hatch_map[row["tipo"]],
-            label="Actual" if i == 0 else ""
-        )
-
-    for i in range(1, len(df_hist)):
-        if df_hist.loc[i, "tipo"] != df_hist.loc[i - 1, "tipo"]:
-            ax.axvline(
-                i - 0.5,
-                color="#5A5757",
-                linewidth=0.8,
-                linestyle="--"
-            )
-
-    # Linea MSD
-    ax.plot(
-        x,
-        df_hist["msd"],
-        "--o",
-        color="#A7A7A7",
-        markersize=3,
-        label="MSD"
-    )
-
-    # Linea BBP
-    ax.plot(
-        x,
-        df_hist["bbp"],
-        "-o",
-        color="#17C720",
-        markersize=3,
-        label="BBP"
-    )
-
-    # Etiquetas dentro de barras
-    for i, v in enumerate(df_hist["actual"]):
-        if pd.notna(v):
-            ax.text(
-                i,
-                v - 2,
-                f"{v:.2f}%",
-                ha="center",
-                va="top",
-                color="white",
-                fontsize=5,
-                rotation=90
-            )
-
-    # Etiquetas sobre lineas
-    for i, v in enumerate(df_hist["bbp"]):
-        if pd.notna(v):
-            ax.text(
-                i,
-                v + 0.4,
-                f"{v:.2f}%",
-                fontsize=6,
-                ha="center",
-                color="#2BE034"
-            )
-
-    for i, v in enumerate(df_hist["msd"]):
-        if pd.notna(v):
-            ax.text(
-                i,
-                v + 0.4,
-                f"{v:.2f}%",
-                fontsize=6,
-                ha="center",
-                color="#B8B2B2"
-            )
-
-    # Ejes y estilo
-    ax.set_ylim(0, 102)
-    ax.set_xticks(x)
-    ax.set_xticklabels(df_hist["periodo"], fontsize=7)
-    ax.set_yticks([0, 101, 50,10])
-    ax.tick_params(axis="y", labelsize=7)
-    ax.spines["left"].set_color("#FFFFFF")
-    ax.tick_params(axis="y", colors="#FFFFFF")
-    ax.yaxis.label.set_color("#FFFFFF")
-    ax.spines["bottom"].set_color("#FFFFFF")
-    ax.tick_params(axis="x", colors="#FFFFFF")
-    ax.xaxis.label.set_color("#FFFEFE")
-
-
-
-    for s in ["top", "right"]:
-        ax.spines[s].set_visible(False)
-
-    leg = ax.legend(
-        loc="upper right",
-        bbox_to_anchor=(0.5, -0.25),
-        fontsize=7,
-        frameon=False,
-        ncol=3
-    )
-
-    for text in leg.get_texts():
-        text.set_color("#FFFFFF")
-
-    plt.tight_layout(pad=0.3)
-    st.pyplot(fig, use_container_width=False)
-
-left, right = st.columns([1.6, 2.4])
-
-
-# -------- COLUMNA DERECHA (HISTORICO LE) --------
-with right:
-
-    SHEET_HIST = "LE_HISTORICO"
-
-    # Verificar que la hoja exista en el archivo actual (TESLA o STELLANTIS)
-    if SHEET_HIST not in xls.sheet_names:
-        st.error(
-            f"No existe la hoja '{SHEET_HIST}' en el archivo "
-            f"{uploaded_file.name}"
-        )
-        st.stop()
-# ================= FILA 3 =================
-
-def census_diario(df_dia):
-    if "census_total" not in df_dia.columns:
-        return None
-    s = df_dia["census_total"].dropna()
-    return s.iloc[-1] if not s.empty else None
-
-census_total_dia = census_diario(df_dia)
-
-def card(title=6, *lines, h=100, bg="#00B7FF"):
+with q:
     st.markdown(
-        f"""
-        <div style="background-color:{bg}; padding:15px; border-radius:8px; font-size:17px;">
-            <h4>{title}</h4>  
-            {'| '.join(lines)}
-        </div>
-        """,
+f"""<div style="
+background:#E6FF04;
+border-radius:6px;
+padding:12px 14px;
+color:#000000;
+min-height:440px;
+display:flex;
+flex-direction:column;
+">
+
+<div style="font-size:25px; font-weight:800; margin-bottom:8px;">
+Quejas📝⚠️
+</div>
+
+<div style="font-size:23px; font-weight:700; line-height:1.4; margin-bottom:8px;">
+<b>Objetivo:</b> {quejas_target_dia if quejas_target_dia is not None else "-"}<br>
+<b>Total:</b> {total_quejas}
+</div>
+
+<div style="font-size:23px; font-weight:600; line-height:1.45;">
+{qtxt}
+</div>
+
+</div>""",
         unsafe_allow_html=True
     )
 
-c1,c2,c3 = st.columns([1, 2, 1])
+# --- Gráfica ---
 
-with c1: card( "Census",  f"""<span style="font-size:20px;"> Total: {census_total_dia or '-'}\n | {abc_line(A,B,C,'census_turno')}</span""")
-with c2: card("Ausentismo", f"<b>Injustificado:</b> {abc_line(A,B,C,"aus_injust")}",f"<b>Controlado:</b> {abc_line(A,B,C,"aus_control")}",f"<br><b>Rotacion:</b> {abc_line(A,B,C,"rotacion")}",f"<b>TLO: </b>{abc_line(A,B,C,"tlo")}",f"<b>C-39:</b> {abc_line(A,B,C,"c39")}")
-with c3: card("Seguridad EHSS", f"Transporte: {abc_line(A,B,C,"ehs_transporte")}",f"Incidentes: {abc_line(A,B,C,"ehs_incidentes")}")
+
+SHEET_HIST = "LE_HISTORICO"
+
+df_raw = pd.read_excel(xls, SHEET_HIST)
+
+# Primera columna = KPI
+df_raw = df_raw.rename(columns={df_raw.columns[0]: "KPI"})
+df_raw = df_raw.set_index("KPI")
+
+# Transponer para graficar
+df_hist = (
+    df_raw
+    .T
+    .reset_index()
+    .rename(columns={
+        "index": "periodo",
+        "Actual": "actual",
+        "BBP": "bbp",
+        "MSD": "msd"
+    })
+)
+
+for c in ["actual", "bbp", "msd"]:
+    df_hist[c] = (
+        pd.to_numeric(df_hist[c], errors="coerce") * 100
+    )
+
+x = range(len(df_hist))
+
+fig, ax = plt.subplots(figsize=(6.8, 2.6))
+fig.patch.set_facecolor("#000000")
+ax.set_facecolor("#000000")
+
+# Barras Actual
+ax.bar(
+    x,
+    df_hist["actual"],
+    width=0.6,
+    color="#00CC63",
+    label="Actual"
+)
+
+# Líneas BBP / MSD
+ax.plot(x, df_hist["bbp"], "-o", color="#FE8002", label="BBP", markersize=4)
+ax.plot(x, df_hist["msd"], "--o", color="#A7A7A7", label="MSD", markersize=4)
+
+# -------- ETIQUETAS DE VALORES --------
+
+# Valores de las barras (Actual)
+for i, v in enumerate(df_hist["actual"]):
+    if pd.notna(v):
+        ax.text(
+            i,
+            v - 2,
+            f"{v:.1f}%",
+            ha="center",
+            va="top",
+            fontsize=9,
+            color="white",
+            rotation=90
+        )
+
+# Valores BBP
+for i, v in enumerate(df_hist["bbp"]):
+    if pd.notna(v):
+        ax.text(
+            i,
+            v + 1,
+            f"{v:.1f}%",
+            ha="center",
+            fontsize=9,
+            color="#FE8002"
+        )
+
+# Valores MSD
+for i, v in enumerate(df_hist["msd"]):
+    if pd.notna(v):
+        ax.text(
+            i,
+            v + 1,
+            f"{v:.1f}%",
+            ha="center",
+            fontsize=9,
+            color="#E0E0E0"
+        )
+
+# Etiquetas
+ax.set_ylim(0, 105)
+ax.set_xticks(x)
+ax.set_xticklabels(
+    df_hist["periodo"],
+    fontsize=9,
+    rotation=0,
+    color="white"
+)
+
+ax.tick_params(axis="y", colors="white")
+
+# Estilo ejes
+ax.spines["left"].set_color("white")
+ax.spines["bottom"].set_color("white")
+ax.spines["top"].set_visible(False)
+ax.spines["right"].set_visible(False)
+
+# Leyenda
+leg = ax.legend(
+    loc="upper right",
+    fontsize=8,
+    frameon=False,
+    ncol=3
+)
+for text in leg.get_texts():
+    text.set_color("white")
+
+plt.tight_layout(pad=0.3)
+
+with g:
+    st.pyplot(fig, use_container_width=True)
+# ================= PRODUCCIÓN / OEE / SCRAP =================
+p1,p2,p3 = st.columns([2.2,1.2,1.6])
+
+with p1:
+    card(
+        "Producción🛠️⚙️",
+        f"""Piezas Construidas: {abc_line(A,B,C,'pzs_const')}<br>Defectos acumulados: {abc_line(A,B,C,'defectos_acum')}<br>DPMUs: {abc_line(A,B,C,'dpmus')}""",
+        "#FF893B"
+    )
+
+with p2: 
+    card("OEE✂️",f"""Objetivo: {oee_target if oee_target is not None else "-"}<br>Actual: {oee_actual if oee_actual is not None else "-"}<br>Acum: {oee_acum if oee_acum is not None else "-"}""",
+    "#FF893B"
+)
+
+
+with p3:
+ st.markdown(
+f"""<div style="
+background:#FF893B;
+border-radius:6px;
+padding:10px 12px;
+color:#000000;
+min-height:140px;
+">
+
+<div style="font-size:20px; font-weight:800; margin-bottom:6px;">
+SCRAP🚮🗑️
+</div>
+
+<div style="font-size:20px; font-weight:700; line-height:1.3;">
+<b>Actual:</b> {abc_line(A,B,C,'scrap_actual')}<br>
+<b>Acumulado:</b> {abc_line(A,B,C,'scrap_acum')}
+</div>
+
+</div>""",
+        unsafe_allow_html=True
+    )
+
+# ================= CENSUS / AUSENTISMO / EHS =================
+c1,c2,c3 = st.columns([0.8,2.2,1])
+
+with c1:
+    st.markdown(
+f"""<div style="
+background:#00B7FF;
+border-radius:6px;
+padding:12px 14px;
+color:#000000;
+min-height:120px;
+display:flex;
+flex-direction:column;
+">
+
+<div style="font-size:22px; font-weight:800; margin-bottom:6px;">
+Census🚻 
+</div>
+
+<div style="font-size:18px; font-weight:700; line-height:1.35;">
+<b>Total:</b> {get_val(row,'census_total')}<br>
+{abc_line(A,B,C,'census_turno')}
+</div>
+
+</div>""",
+        unsafe_allow_html=True
+    )
+
+with c2:
+
+    card(
+        "Ausentismo🧍🏻",
+f"""<div style="
+display:grid;
+grid-template-columns: 1fr 1fr 1fr;
+gap:8px;
+">
+
+<div>
+<b>Injustificado</b>
+{abc_line(A,B,C,"aus_injust")}
+</div>
+
+<div>
+<b>Controlado</b>
+{abc_line(A,B,C,"aus_control")}
+</div>
+
+<div>
+<b>Rotación</b>
+{abc_line(A,B,C,"rotacion")}
+</div>
+
+<div>
+<b>TLO</b>
+{abc_line(A,B,C,"tlo")}
+</div>
+
+<div>
+<b>C-39</b>
+{abc_line(A,B,C,"c39")}
+</div>
+
+</div>""",
+        "#00B7FF"
+    )
+with c3:
+   st.markdown(
+f"""<div style="
+background:#00B7FF;
+border-radius:6px;
+padding:12px 14px;
+color:#000000;
+min-height:120px;
+display:flex;
+flex-direction:column;
+">
+
+<div style="font-size:22px; font-weight:800; margin-bottom:6px;">
+Seguridad EHS 🚨
+</div>
+
+<div style="font-size:18px; font-weight:700; line-height:1.35;">
+<b>Transporte:</b> {abc_line(A,B,C,"ehs_transporte")}<br>
+<b>Incidentes:</b> {abc_line(A,B,C,"ehs_incidentes")}
+</div>
+
+</div>""",
+        unsafe_allow_html=True
+    )
 
 # ================= LEER DATOS SEMANALES =================
 turno_tabla = st.radio(
@@ -764,7 +673,4 @@ with t2:
             df_show.style.format(formatos, na_rep="-"),
             use_container_width=True
         )
-
-
-
 

@@ -422,8 +422,8 @@ SCRAP🚮🗑️
 </div>
 
 <div style="font-size:20px; font-weight:700; line-height:1.3;">
-<b>Actual:</b> {abc_line(A,B,C,'scrap_actual')}<br>
-<b>Acumulado:</b> {abc_line(A,B,C,'scrap_acum')}
+<b>Actual:$</b> {abc_line(A,B,C,'scrap_actual')}<br>
+<b>Acumulado:$</b> {abc_line(A,B,C,'scrap_acum')}
 </div>
 
 </div>""",

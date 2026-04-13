@@ -159,6 +159,7 @@ C = df_dia[df_dia["shift"] == "C"].iloc[0] if not df_dia[df_dia["shift"]=="C"].e
 
 row = df_dia.iloc[-1]
 
+
 def obtener_semana_id(fecha):
     anio, semana, _ = fecha.isocalendar()
     return f"{anio}-W{semana:02d}"
@@ -207,6 +208,15 @@ with k3: card("% LE Turno🔂🆗", abc_line(A,B,C,"le_turno","%"), "#2FFF05")
 with k4: card("Eficiencia del Día📈☀️",f"""Actual: {le_dia_actual if le_dia_actual is not None else "-"}% |  Forecast: {le_dia_forecast if le_dia_forecast is not None else "-"}%""", "#2FFF05")
 with k5: card("Eficiencia del Mes📉📆",f"""Actual: {ef_mes_actual if ef_mes_actual is not None else "-"}% | Forecast: {ef_mes_forecast if ef_mes_forecast is not None else "-"}%""", "#2FFF05")
 
+
+if (
+    A is not None
+    and "census_total" in A
+    and pd.notna(A["census_total"])
+):
+    census_total = A["census_total"]
+else:
+    census_total = "-"
 
 
 # ================= QUEJAS + GRÁFICA =================
@@ -450,7 +460,7 @@ Census🚻
 </div>
 
 <div style="font-size:18px; font-weight:700; line-height:1.35;">
-<b>Total:</b> {get_val(row,'census_total')}<br>
+<b>Total:</b> {census_total}<br>
 {abc_line(A,B,C,'census_turno')}
 </div>
 

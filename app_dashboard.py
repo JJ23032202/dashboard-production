@@ -43,6 +43,24 @@ section[data-testid="stSidebar"] > div {
 </style>
 """, unsafe_allow_html=True)
 
+KPI_COLORS = {
+    "verde": {
+        "TESLA": "#2FFF05",        # verde claro
+        "STELLANTIS": "#1FAF03"    # verde más oscuro
+    },
+    "naranja": {
+        "TESLA": "#FFB347",
+        "STELLANTIS": "#FF8C1A"
+    },
+    "azul": {
+        "TESLA": "#5BC8FF",
+        "STELLANTIS": "#0096D6"
+    },
+    "amarillo": {
+        "TESLA": "#FFE066",
+        "STELLANTIS": "#FFC107"
+    }
+}
 
 # ================= FUNCIONES AUXILIARES =================
 def get_val(row, col, suf=""):
@@ -88,448 +106,324 @@ def card(title, body, bg):
         """,
         unsafe_allow_html=True
     )
+    
+def to_percent(v):
+
+    """ Convierte a porcentaje de forma robusta para datos de LE:
+    - 0.86  → 86
+    - 1.10  → 110
+    - 68    → 68
+    """
+    try:
+        v = float(v)
+        return v * 100 if v < 2 else v
+    except Exception:
+        return None
+
 # ================= SIDEBAR =================
 st.sidebar.header("📂 Carga de datos")
-
-plataforma = st.sidebar.selectbox(
-    "Plataforma a visualizar",
-    ["TESLA", "STELLANTIS"]
-)
-
 uploaded_file = st.sidebar.file_uploader(
-    f"Sube el Excel de {plataforma}",
-    type=["xlsx"],
-    key=f"uploader_{plataforma}"
+    "Sube el Excel del TIER (TESLA + STELLANTIS)",
+    type=["xlsx"]
 )
-if "excel_files" not in st.session_state:
-    st.session_state["excel_files"] = {}
-
-if uploaded_file is not None:
-    st.session_state["excel_files"][plataforma] = uploaded_file
-    st.sidebar.success(f"Archivo de {plataforma} cargado ✅")
-
-
-if plataforma not in st.session_state["excel_files"]:
-
-    # Espaciador superior para bajar el mensaje
-    st.markdown("<div style='height:140px'></div>", unsafe_allow_html=True)
-
-    with st.container():
-        st.warning(f"⬆️ Sube primero el archivo de {plataforma} para continuar")
-
+if uploaded_file is None:
+    st.sidebar.warning("⬆️ Sube el archivo para continuar")
     st.stop()
-
-
-
-uploaded_file = st.session_state["excel_files"][plataforma]
-
 xls = pd.ExcelFile(uploaded_file)
-
 # ================= LECTURA DE DATOS =================
-df = pd.read_excel(xls, "TIER_MAIN")
-df_cod = pd.read_excel(xls, "LE_CODIGO")
-df_det = pd.read_excel(xls, "DETRACTORES")
-
-df['date'] = pd.to_datetime(df['date'], errors='coerce')
-df["shift"] = df["shift"].astype(str).str.upper().str.strip()
-
-
-today = dt.date.today()
-
-min_date = df['date'].dropna().min().date()
-max_date = df['date'].dropna().max().date()
-
-default_date = today if min_date <= today <= max_date else max_date
-
+DATA = {
+    "TESLA": {
+        "tier": pd.read_excel(xls, "TIER_MAIN_TESLA"),
+        "le_codigo": pd.read_excel(xls, "LE_CODIGO_TESLA"),
+        "detractores": pd.read_excel(xls, "DETRACTORES_TESLA"),
+    },
+    "STELLANTIS": {
+        "tier": pd.read_excel(xls, "TIER_MAIN_STELLANTIS"),
+        "le_codigo": pd.read_excel(xls, "LE_CODIGO_STELLANTIS"),
+        "detractores": pd.read_excel(xls, "DETRACTORES_STELLANTIS"),
+    }
+}
+#fecha y semana
 fecha = st.date_input(
     "Fecha",
-    min_value=min_date,
-    max_value=max_date,
-    value=default_date
+    value=dt.date.today()
 )
-
-
-df_dia = df[df.date.dt.date == fecha]
-if df_dia.empty:
-    st.stop()
-
-A = df_dia[df_dia["shift"] == "A"].iloc[0] if not df_dia[df_dia["shift"]=="A"].empty else None
-B = df_dia[df_dia["shift"] == "B"].iloc[0] if not df_dia[df_dia["shift"]=="B"].empty else None
-C = df_dia[df_dia["shift"] == "C"].iloc[0] if not df_dia[df_dia["shift"]=="C"].empty else None
-
-row = df_dia.iloc[-1]
-
-
 def obtener_semana_id(fecha):
     anio, semana, _ = fecha.isocalendar()
     return f"{anio}-W{semana:02d}"
-
 semana_id = obtener_semana_id(fecha)
 
-h1, h2 = st.columns([6, 1])
+# ================= FUNCIÓN PRINCIPAL DEL DASHBOARD =================
 
-with h1:
-    st.markdown(f"## {plataforma} – TIER GENERAL | {fecha}")
+def render_dashboard(plataforma, data, fecha, semana_id):
+    df = data["tier"].copy()
+    df_cod = data["le_codigo"].copy()
+    df_det = data["detractores"].copy()
 
-with h2:
-    st.image("aptiv_logo.png", width=200)
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df["shift"] = df["shift"].astype(str).str.upper().str.strip()
 
-# DEBUG (opcional - puedes quitar después)
-st.write("Semana calculada:", semana_id)
+    df_dia = df[df.date.dt.date == fecha]
+    if df_dia.empty:
+        st.warning(f"Sin datos para {plataforma}")
+        return
+    verde = KPI_COLORS["verde"][plataforma]
+
+    A = df_dia[df_dia["shift"] == "A"].iloc[0] if not df_dia[df_dia["shift"] == "A"].empty else None
+    B = df_dia[df_dia["shift"] == "B"].iloc[0] if not df_dia[df_dia["shift"] == "B"].empty else None
+    C = df_dia[df_dia["shift"] == "C"].iloc[0] if not df_dia[df_dia["shift"] == "C"].empty else None
+
+    # ===== HEADER =====
+    st.markdown(f"## {plataforma} – TIER GENERAL  \n{fecha}")
+
+    # ===== KPIs VERDES =====
+    k1,k2,k3 = st.columns(3)
+    with k1:
+        card("% LE Turno🔂🆗", abc_line(A,B,C,"le_turno","%"), verde)
+    with k2:
+        card("Eficiencia Día📈☀️",f"Actual: {get_val(A,'le_dia_actual','%')}\nForecast: {get_val(A,'le_dia_forecast','%')}",verde)
+    with k3:
+        card("Eficiencia Mes📉📆", f"Actual: {get_val(A,'ef_mes_actual','%')}\nForecast: {get_val(A,'ef_mes_forecast','%')}",verde)
+
+col_tesla, col_stellantis = st.columns(2)
+with col_tesla:
+    render_dashboard(
+        plataforma="TESLA",
+        data=DATA["TESLA"],
+        fecha=fecha,
+        semana_id=semana_id
+    )
+
+with col_stellantis:
+    render_dashboard(
+        plataforma="STELLANTIS",
+        data=DATA["STELLANTIS"],
+        fecha=fecha,
+        semana_id=semana_id
+    )
 
 
-def ultimo_valor(df, col, fecha):
-    if col not in df.columns:
-        return None
-    s = df[df.date.dt.date <= fecha][col].dropna()
-    return s.iloc[-1] if not s.empty else None
+# ================= GRÁFICA LE TOTAL PLANTA =================
+df = pd.read_excel(xls, "LE_HISTORICO")
 
-# Valores LE
-le_dia_actual = ultimo_valor(df, "le_dia_actual", fecha)
-le_dia_forecast = ultimo_valor(df, "le_dia_forecast", fecha)
+# Normalizar columnas
+df.columns = df.columns.astype(str).str.strip()
 
-ef_mes_actual = ultimo_valor(df, "ef_mes_actual", fecha)
-ef_mes_forecast = ultimo_valor(df, "ef_mes_forecast", fecha)
-
-# OEE
-oee_actual = ultimo_valor(df, "oee_actual", fecha)
-oee_acum = ultimo_valor(df, "oee_acum", fecha)
-oee_target = ultimo_valor(df, "oee_target", fecha)
-
-# Quejas target
-quejas_target_dia = ultimo_valor(df, "quejas_target", fecha)
-quejas_actual_dia = ultimo_valor(df, "quejas_actuales", fecha)
-# ================= KPIs (10) =================
-k1,k2,k3,k4,k5= st.columns(5)
-
-with k1: card("Primera Hora🕕", abc_line(A,B,C,"des_primera_hora","%"), "#2FFF05")
-with k2: card("Última Hora🕒", abc_line(A,B,C,"des_ultima_hora","%"), "#2FFF05")
-with k3: card("% LE Turno🔂🆗", abc_line(A,B,C,"le_turno","%"), "#2FFF05")
-with k4: card("Eficiencia del Día📈☀️",f"""Actual: {le_dia_actual if le_dia_actual is not None else "-"}% |  Forecast: {le_dia_forecast if le_dia_forecast is not None else "-"}%""", "#2FFF05")
-with k5: card("Eficiencia del Mes📉📆",f"""Actual: {ef_mes_actual if ef_mes_actual is not None else "-"}% | Forecast: {ef_mes_forecast if ef_mes_forecast is not None else "-"}%""", "#2FFF05")
-
-
-if (
-    A is not None
-    and "census_total" in A
-    and pd.notna(A["census_total"])
-):
-    census_total = A["census_total"]
+# Filtrar semana seleccionada
+df_week = df[df["semana_id"] == semana_id]
+if df_week.empty:
+    st.warning("Sin datos históricos")
 else:
-    census_total = "-"
+    # Separar filas
+    row_actual = df_week[df_week.iloc[:, 1] == "Actual"].iloc[0]
+    row_msd = df_week[df_week.iloc[:, 1] == "MSD"].iloc[0]
+
+    # Extraer valores (ya vienen en %)
+
+    val_tesla = to_percent(row_actual["TESLA.4"])
+    val_stell = to_percent(row_actual["STELLANTIS.4"])
+    val_planta = to_percent(row_actual["Total _Planta"])
+    val_msd = to_percent(row_msd["Total _Planta"])
 
 
-# ================= QUEJAS + GRÁFICA =================
+    x = [0, 1, 2]
 
-def quejas_target_diario(df_dia):
-    if "quejas_target" not in df_dia.columns:
-        return None
-    s = df_dia["quejas_target"].dropna()
-    return s.iloc[-1] if not s.empty else None
+    fig, ax = plt.subplots(figsize=(9.5, 2.0))
+    fig.patch.set_facecolor("#000000")
+    ax.set_facecolor("#000000")
+    bar_width = 0.28
 
-q, g = st.columns([2,3])
+    # Barras
+    ax.bar(x[0], val_tesla, width=bar_width, color="#B8C0BC", label="TESLA")
+    ax.bar(x[1], val_stell, width=bar_width, color="#00B7FF", label="STELLANTIS")
+    ax.bar(x[2], val_planta, width=bar_width, color="#DD32FF", label="TOTAL PLANTA")
 
-if "quejas_codigo" in df_dia.columns:
-    qdf = df_dia[
-        df_dia["quejas_codigo"].notna() &
-        (df_dia["quejas_codigo"].astype(str).str.strip() != "")
-    ][["quejas_cuales", "quejas_codigo"]]
+    # Línea MSD
+    ax.plot(x, [val_msd]*3, "--o", color="#44CA32", linewidth=2, label="MSD")
 
-    total_quejas = len(qdf)
-
-    qtxt = (
-        "_Sin quejas_"
-        if qdf.empty
-        else "<br>".join(
-            f"• {r.quejas_cuales} ({r.quejas_codigo})"
-            for _, r in qdf.iterrows()
-        )
-    )
-else:
-    total_quejas = 0
-    qtxt = "_Sin quejas_"
-
-quejas_target_dia = quejas_target_diario(df_dia)
-
-with q:
-    st.markdown(
-f"""<div style="
-background:#E6FF04;
-border-radius:6px;
-padding:12px 14px;
-color:#000000;
-min-height:440px;
-display:flex;
-flex-direction:column;
-">
-
-<div style="font-size:25px; font-weight:800; margin-bottom:8px;">
-Quejas📝⚠️
-</div>
-
-<div style="font-size:23px; font-weight:700; line-height:1.4; margin-bottom:8px;">
-<b>Objetivo:</b> {quejas_target_dia if quejas_target_dia is not None else "-"}<br>
-<b>Total:</b> {total_quejas}
-</div>
-
-<div style="font-size:23px; font-weight:600; line-height:1.45;">
-{qtxt}
-</div>
-
-</div>""",
-        unsafe_allow_html=True
-    )
-
-# --- Gráfica ---
-
-
-SHEET_HIST = "LE_HISTORICO"
-
-df_raw = pd.read_excel(xls, SHEET_HIST)
-
-# Primera columna = KPI
-df_raw = df_raw.rename(columns={df_raw.columns[0]: "KPI"})
-df_raw = df_raw.set_index("KPI")
-
-# Transponer para graficar
-df_hist = (
-    df_raw
-    .T
-    .reset_index()
-    .rename(columns={
-        "index": "periodo",
-        "Actual": "actual",
-        "BBP": "bbp",
-        "MSD": "msd"
-    })
-)
-
-for c in ["actual", "bbp", "msd"]:
-    df_hist[c] = (
-        pd.to_numeric(df_hist[c], errors="coerce") * 100
-    )
-
-x = range(len(df_hist))
-
-fig, ax = plt.subplots(figsize=(6.8, 2.6))
-fig.patch.set_facecolor("#000000")
-ax.set_facecolor("#000000")
-
-# Barras Actual
-ax.bar(
-    x,
-    df_hist["actual"],
-    width=0.6,
-    color="#00CC63",
-    label="Actual"
-)
-
-# Líneas BBP / MSD
-ax.plot(x, df_hist["bbp"], "-o", color="#FE8002", label="BBP", markersize=4)
-ax.plot(x, df_hist["msd"], "--o", color="#A7A7A7", label="MSD", markersize=4)
-
-# -------- ETIQUETAS DE VALORES --------
-
-# Valores de las barras (Actual)
-for i, v in enumerate(df_hist["actual"]):
-    if pd.notna(v):
+    # Etiquetas
+    for i, v in enumerate([val_tesla, val_stell, val_planta]):
         ax.text(
             i,
-            v - 18,
+            v - 30,
             f"{v:.1f}%",
             ha="center",
             va="top",
             fontsize=9,
-            color="white",
+            color="black" if i == 2 else "white",
             rotation=90
         )
 
-# Valores BBP
-for i, v in enumerate(df_hist["bbp"]):
-    if pd.notna(v):
+    for xi in x:
         ax.text(
-            i,
-            v + 8,
-            f"{v:.1f}%",
+            xi,
+            val_msd + 6,
+            f"{val_msd:.1f}%",
             ha="center",
+            va="bottom",
             fontsize=9,
-            color="#FE8002"
+            color="#44CA32"
         )
 
-# Valores MSD
-for i, v in enumerate(df_hist["msd"]):
-    if pd.notna(v):
-        ax.text(
-            i,
-            v + 1,
-            f"{v:.1f}%",
-            ha="center",
-            fontsize=9,
-            color="#E0E0E0"
-        )
+    # Ejes
+    ax.set_ylim(0, 180)
+    ax.set_xticks(x)
+    #ax.set_xticklabels(["TESLA", "STELLANTIS", "TOTAL"], color="white")
+    ax.tick_params(axis="y", colors="white")
 
-# Etiquetas
-ax.set_ylim(0, 105)
-ax.set_xticks(x)
-ax.set_xticklabels(
-    df_hist["periodo"],
-    fontsize=9,
-    rotation=0,
-    color="white"
-)
+    ax.spines["left"].set_color("white")
+    ax.spines["bottom"].set_color("white")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
 
-ax.tick_params(axis="y", colors="white")
-
-# Estilo ejes
-ax.spines["left"].set_color("white")
-ax.spines["bottom"].set_color("white")
-ax.spines["top"].set_visible(False)
-ax.spines["right"].set_visible(False)
-
-# Leyenda
-leg = ax.legend(
-    loc="lower center",
-    bbox_to_anchor=(0.5, -0.4),
-    fontsize=8,
-    frameon=False,
-    ncol=3
-)
-for text in leg.get_texts():
-    text.set_color("white")
-plt.subplots_adjust(bottom=0.4)
-plt.tight_layout(pad=1.5)
-
-with g:
+    leg = ax.legend(
+        loc="lower center",
+        bbox_to_anchor=(0.5, -0.4),
+        ncol=4,
+        frameon=False,
+        fontsize=8
+    )
+    for t in leg.get_texts():
+        t.set_color("white")
+    ax.margins(x=0.25)
+    plt.tight_layout(pad=1.0)
     st.pyplot(fig, use_container_width=True)
-# ================= PRODUCCIÓN / OEE / SCRAP =================
-p1,p2,p3 = st.columns([2.2,1.2,1.6])
-
-with p1:
-    card(
-        "Producción🛠️⚙️",
-        f"""Piezas Construidas: {abc_line(A,B,C,'pzs_const')}<br>Defectos acumulados: {abc_line(A,B,C,'defectos_acum')}<br>DPMUs: {abc_line(A,B,C,'dpmus')}""",
-        "#FF893B"
-    )
-
-with p2: 
-    card("OEE✂️",f"""Objetivo: {oee_target if oee_target is not None else "-"}<br>Actual: {oee_actual if oee_actual is not None else "-"}<br>Acum: {oee_acum if oee_acum is not None else "-"}""",
-    "#FF893B"
-)
 
 
-with p3:
- st.markdown(
-f"""<div style="
-background:#FF893B;
-border-radius:6px;
-padding:10px 12px;
-color:#000000;
-min-height:140px;
-">
+# ================= QUEJAS =================
+def render_quejas(data, fecha, titulo):
+    df = data["tier"].copy()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df_dia = df[df.date.dt.date == fecha]
+    bg = KPI_COLORS["amarillo"][titulo]  
+    if df_dia.empty:
+        st.warning(f"Sin datos de quejas para {titulo}")
+        return
 
-<div style="font-size:20px; font-weight:800; margin-bottom:6px;">
-SCRAP🚮🗑️
-</div>
+    # Target y total del día (último registro válido)
+    target = df_dia["quejas_target"].dropna().iloc[-1] \
+        if "quejas_target" in df_dia.columns and not df_dia["quejas_target"].dropna().empty else "-"
 
-<div style="font-size:20px; font-weight:700; line-height:1.3;">
-<b>Actual:$</b> {abc_line(A,B,C,'scrap_actual')}<br>
-<b>Acumulado:$</b> {abc_line(A,B,C,'scrap_acum')}
-</div>
+    total = df_dia["quejas_actuales"].dropna().iloc[-1] \
+        if "quejas_actuales" in df_dia.columns and not df_dia["quejas_actuales"].dropna().empty else 0
 
-</div>""",
-        unsafe_allow_html=True
-    )
+    # Detalle de quejas
+    qdf = df_dia[
+        df_dia["quejas_cuales"].notna() &
+        (df_dia["quejas_cuales"].astype(str).str.strip() != "")
+    ][["quejas_cuales", "quejas_codigo"]]
 
-# ================= CENSUS / AUSENTISMO / EHS =================
-c1,c2,c3 = st.columns([0.8,2.2,1])
+    if qdf.empty:
+        texto = "_Sin quejas registradas_"
+    else:
+        texto = "\n".join(
+            f"• {r.quejas_cuales} ({r.quejas_codigo})"
+            for _, r in qdf.iterrows()
+        )
 
-with c1:
+    # Render
     st.markdown(
-f"""<div style="
-background:#00B7FF;
-border-radius:6px;
-padding:12px 14px;
-color:#000000;
-min-height:120px;
-display:flex;
-flex-direction:column;
-">
-
-<div style="font-size:22px; font-weight:800; margin-bottom:6px;">
-Census🚻 
-</div>
-
-<div style="font-size:18px; font-weight:700; line-height:1.35;">
-<b>Total:</b> {census_total}<br>
-{abc_line(A,B,C,'census_turno')}
-</div>
-
-</div>""",
+        f"""
+        <div style="
+            background:{bg};
+            color:#000000;
+            padding:10px;
+            border-radius:6px;
+            font-size:18px;
+        ">
+            <b>{titulo} – Quejas</b><br>
+            Objetivo: <b>{target}</b> | Total: <b>{total}</b>
+            <div style="
+                max-height:160px;
+                overflow-y:auto;
+                margin-top:6px;
+                font-size:17px;
+            ">
+            {texto.replace(chr(10), '<br>')}
+            </div>
+        </div>
+        """,
         unsafe_allow_html=True
     )
+# ================= QUEJAS COMPARATIVAS =================
+q1, q2 = st.columns(2)
 
-with c2:
+with q1:
+    render_quejas(DATA["TESLA"], fecha, "TESLA")
 
-    card(
-        "Ausentismo🧍🏻",
-f"""<div style="
-display:grid;
-grid-template-columns: 1fr 1fr 1fr;
-gap:8px;
-">
+with q2:
+    render_quejas(DATA["STELLANTIS"], fecha, "STELLANTIS")
 
-<div>
-<b>Injustificado</b>
-{abc_line(A,B,C,"aus_injust")}
-</div>
 
-<div>
-<b>Controlado</b>
-{abc_line(A,B,C,"aus_control")}
-</div>
+# ================= KPIs NARANJAS =================
+def render_kpis_naranjas(plataforma, data, fecha):
+    df = data["tier"].copy()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df["shift"] = df["shift"].astype(str).str.upper().str.strip()
 
-<div>
-<b>Rotación</b>
-{abc_line(A,B,C,"rotacion")}
-</div>
+    df_dia = df[df.date.dt.date == fecha]
+    if df_dia.empty:
+        st.warning("Sin datos de producción")
+        return
+    naranja = KPI_COLORS["naranja"][plataforma]
+    A = df_dia[df_dia["shift"] == "A"].iloc[0] if not df_dia[df_dia["shift"] == "A"].empty else None
+    B = df_dia[df_dia["shift"] == "B"].iloc[0] if not df_dia[df_dia["shift"] == "B"].empty else None
+    C = df_dia[df_dia["shift"] == "C"].iloc[0] if not df_dia[df_dia["shift"] == "C"].empty else None
 
-<div>
-<b>TLO</b>
-{abc_line(A,B,C,"tlo")}
-</div>
+    # ---------- Producción / OEE / Scrap ----------
+    p1, p2, p3 = st.columns([2.2, 1.3, 1.6])
 
-<div>
-<b>C-39</b>
-{abc_line(A,B,C,"c39")}
-</div>
+    with p1:card("Producción 🛠️",f"""Pzas Construidas:{abc_line(A,B,C,'pzs_const')}<br>Defectos Acum:{abc_line(A,B,C,'defectos_acum')}<br><span style="font-size:25px"> DPMUs:{abc_line(A,B,C,'dpmus')}</span>""", naranja)
 
-</div>""",
-        "#00B7FF"
-    )
-with c3:
-   st.markdown(
-f"""<div style="
-background:#00B7FF;
-border-radius:6px;
-padding:12px 14px;
-color:#000000;
-min-height:120px;
-display:flex;
-flex-direction:column;
-">
+    with p2:card("OEE ✂️",f"""Objetivo: {get_val(A,'oee_target')}<br>Actual:   {get_val(A,'oee_actual')}<br>Acum:     {get_val(A,'oee_acum')}""",naranja)
 
-<div style="font-size:22px; font-weight:800; margin-bottom:6px;">
-Seguridad EHS 🚨
-</div>
+    with p3:card("SCRAP 🚮",f"""Actual:{abc_line(A,B,C,'scrap_actual')}<br>Acumulado:{abc_line(A,B,C,'scrap_acum')}""",naranja)
 
-<div style="font-size:18px; font-weight:700; line-height:1.35;">
-<b>Transporte:</b> {abc_line(A,B,C,"ehs_transporte")}<br>
-<b>Incidentes:</b> {abc_line(A,B,C,"ehs_incidentes")}
-</div>
+# ================= KPIs NARANJAS – PRODUCCIÓN / OEE / SCRAP =================
+st.markdown("")
+p_tesla, p_stellantis = st.columns(2)
 
-</div>""",
-        unsafe_allow_html=True
-    )
+with p_tesla:
+    render_kpis_naranjas("TESLA",DATA["TESLA"], fecha)
+
+with p_stellantis:
+    render_kpis_naranjas("STELLANTIS",DATA["STELLANTIS"], fecha)
+
+
+# ================= KPIs AZULES =================
+def render_kpis_azules(plataforma, data, fecha):
+    df = data["tier"].copy()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df["shift"] = df["shift"].astype(str).str.upper().str.strip()
+    azul = KPI_COLORS["azul"][plataforma]
+    df_dia = df[df.date.dt.date == fecha]
+    if df_dia.empty:
+        st.warning("Sin datos de census / ausentismo")
+        return
+
+    A = df_dia[df_dia["shift"] == "A"].iloc[0] if not df_dia[df_dia["shift"] == "A"].empty else None
+    B = df_dia[df_dia["shift"] == "B"].iloc[0] if not df_dia[df_dia["shift"] == "B"].empty else None
+    C = df_dia[df_dia["shift"] == "C"].iloc[0] if not df_dia[df_dia["shift"] == "C"].empty else None
+
+    c1, c2, c3 = st.columns([1, 2.4, 1.2])
+
+    # ---------- Census ----------
+    with c1:card("<b>Census 🚻<br>",f"""<b>Total: {get_val(A,'census_total')}<br>TA: {get_val(A,'census_turno')}<br>TB: {get_val(B,'census_turno')}<br>TC: {get_val(C,'census_turno')}<br><br>""", azul)
+    # ---------- Ausentismo ----------
+    with c2: card("<b>Ausentismo 🧍<br>",f"""<b>Injustificado: {abc_line(A,B,C,'aus_injust')}<br><b>Controlado: {abc_line(A,B,C,'aus_control')}<br><b>Rotación: {abc_line(A,B,C,'rotacion')}<br><b>TLO: {abc_line(A,B,C,'tlo')}<b><br>C‑39: {abc_line(A,B,C,'c39')}""",azul)
+    # ---------- Seguridad ----------
+    with c3: card("<b>Seguridad 🚨<br>",f"""<b>Transporte:<br>{abc_line(A,B,C,'ehs_transporte')}<br> <b>Incidentes:<br>{abc_line(A,B,C,'ehs_incidentes')}<br><br>""",azul)
+
+#==== KPIs AZULES – CENSUS / AUSENTISMO / SEGURIDAD =================
+st.markdown("")
+
+a_tesla, a_stellantis = st.columns(2)
+
+with a_tesla:
+    render_kpis_azules("TESLA",DATA["TESLA"], fecha)
+
+with a_stellantis:
+    render_kpis_azules("STELLANTIS",DATA["STELLANTIS"], fecha)
 
 # ================= LEER DATOS SEMANALES =================
 turno_tabla = st.radio(
@@ -538,26 +432,23 @@ turno_tabla = st.radio(
     horizontal=True
 )
 
-def leer_detractores_por_semana(xls, semana_id, turno):
-    df = pd.read_excel(xls, "DETRACTORES")
-
-    # Normalizar nombres
+def leer_detractores_por_semana(xls, semana_id, turno, sheet_name):
+    df = pd.read_excel(xls, sheet_name)
     df.columns = df.columns.astype(str).str.strip()
 
     if turno == "A":
         base_cols = ["semana_id", "shift", "concepto"]
         suf = ""
-    else:  # turno B
+    else:
         base_cols = ["semana_id.1", "shift .1", "concepto.1"]
         suf = ".1"
 
-    # Tomar columnas del turno correspondiente
     cols = base_cols + [
         f"Lunes{suf}", f"%LE TLunes{suf}",
         f"Martes{suf}", f"%LE TMartes{suf}",
         f"Miercoles{suf}", f"%LE Tmiercoles{suf}",
         f"Jueves{suf}", f"%LE TJueves{suf}",
-       f"Viernes{suf}", f"%LE TViernes{suf}",
+        f"Viernes{suf}", f"%LE TViernes{suf}",
         f"Total Semana{suf}", f"%LE Total{suf}"
     ]
 
@@ -576,21 +467,29 @@ def leer_detractores_por_semana(xls, semana_id, turno):
     df_t = df_t[df_t["semana_id"] == semana_id]
     df_t = df_t[df_t["concepto"].notna()]
 
-    df_t = df_t.set_index("concepto")
-    return df_t
+    return df_t.set_index("concepto")
 
-# -------- TABLA % LE POR CODIGO --------
 
-def leer_le_codigo_por_semana(xls, semana_id, turno):
 
-    df = pd.read_excel(xls, "LE_CODIGO")
+def leer_le_codigo_por_semana(xls, semana_id, turno, sheet_name):
+    df = pd.read_excel(xls, sheet_name)
     df.columns = df.columns.astype(str).str.strip()
 
+    # --- detectar columna de código ---
+    col_codigo = None
+    for c in df.columns:
+        if "codigo" in c.lower():
+            col_codigo = c
+            break
+
+    if col_codigo is None:
+        return pd.DataFrame()  # no hay columna código
+
     if turno == "A":
-        base = ["semana_id", "shift", "codigo"]
+        base = ["semana_id", "shift", col_codigo]
         suf = ""
     else:
-        base = ["semana_id.1", "shift.1", "codigo.1"]
+        base = ["semana_id.1", "shift.1", f"{col_codigo}.1"]
         suf = ".1"
 
     cols = base + [
@@ -599,89 +498,105 @@ def leer_le_codigo_por_semana(xls, semana_id, turno):
         f"Viernes{suf}", f"Total Semana{suf}"
     ]
 
+    # Verificar columnas existentes
+    cols = [c for c in cols if c in df.columns]
     df_t = df[cols].copy()
-    df_t.columns = [
-        "semana_id", "shift", "codigo",
-        "Lunes", "Martes",
-        "Miercoles", "Jueves",
-        "Viernes", "Total Semana"
-    ]
 
+    # Renombrar columnas
+    new_cols = {
+        cols[0]: "semana_id",
+        cols[1]: "shift",
+        cols[2]: "codigo",
+    }
+    for c in cols[3:]:
+        new_cols[c] = c.replace(suf, "")
+
+    df_t = df_t.rename(columns=new_cols)
+
+    # Filtrar semana
     df_t["semana_id"] = df_t["semana_id"].ffill().astype(str).str.strip()
     df_t = df_t[df_t["semana_id"] == semana_id]
-    df_t = df_t[df_t["codigo"].notna()]
 
-    df_t = df_t.set_index("codigo")
+    # Limpiar códigos válidos
+    df_t["codigo"] = df_t["codigo"].astype(str).str.strip()
+    df_t = df_t[df_t["codigo"] != ""]
 
+    # Convertir a porcentaje
     for col in df_t.columns:
-        df_t[col] = pd.to_numeric(df_t[col], errors="coerce")
+        if col not in ("semana_id", "shift", "codigo"):
+            df_t[col] = pd.to_numeric(df_t[col], errors="coerce")
+            df_t[col] = df_t[col].apply(
+                lambda x: x * 100 if pd.notna(x) and x < 2 else x
+            )
 
-        df_t[col] = df_t[col].apply(
-            lambda x:
-                x * 100 if pd.notna(x) and x <= 1 else
-                x * 10  if pd.notna(x) else x
-        )
+    return df_t.set_index("codigo")
 
-    return df_t
+d1, d2 = st.columns(2)
 
+# -------- TESLA --------
+with d1:
+    st.markdown("#### TESLA")
 
-    # ---- LE total% ----
-df_det_sem = leer_detractores_por_semana(xls, semana_id, turno_tabla)
-df_cod_sem= leer_le_codigo_por_semana(xls, semana_id, turno_tabla)
+    df_det_sem = leer_detractores_por_semana(
+        xls, semana_id, turno_tabla, "DETRACTORES_TESLA"
+    )
 
-t1, t2 = st.columns([2.6, 1.4])
+    df_cod_sem = leer_le_codigo_por_semana(
+        xls, semana_id, turno_tabla, "LE_CODIGO_TESLA"
+    )
 
+    t1, t2 = st.columns([2.6, 1.4])
 
-with t1:
+    with t1:
+        st.markdown("### Detractores")
+        if df_det_sem.empty:
+            st.warning("Sin datos")
+        else:
+            st.dataframe(
+                df_det_sem.drop(columns=["semana_id", "shift"], errors="ignore"),
+                use_container_width=True
+            )
 
-    st.markdown("### Detractores")
+    with t2:
+        st.markdown("### % LE por Código")
+        if df_cod_sem.empty:
+            st.warning("Sin datos")
+        else:
+            st.dataframe(
+                df_cod_sem.drop(columns=["semana_id", "shift"], errors="ignore"),
+                use_container_width=True
+            )
 
-    if df_det_sem.empty:
-        st.warning("Sin datos")
-    else:
-        #  QUITAR COLUMNAS NO DESEADAS
-        df_show = df_det_sem.drop(
-            columns=["semana_id", "shift"],
-            errors="ignore"
-        )
+# -------- STELLANTIS --------
+with d2:
+    st.markdown("#### STELLANTIS")
 
-        def format_det(x, es_pct=False):
-            if isinstance(x, (int, float)) and pd.notna(x):
-                return f"{x:.1f}%" if es_pct else f"{x:.1f}"
-            return x
+    df_det_sem = leer_detractores_por_semana(
+        xls, semana_id, turno_tabla, "DETRACTORES_STELLANTIS"
+    )
 
-        formatos = {}
-        for col in df_show.columns:
-            es_porcentaje = col.lower().startswith("%le")
-            formatos[col] = lambda x, p=es_porcentaje: format_det(x, p)
+    df_cod_sem = leer_le_codigo_por_semana(
+        xls, semana_id, turno_tabla, "LE_CODIGO_STELLANTIS"
+    )
 
-        st.dataframe(
-            df_show.style.format(formatos, na_rep="-"),
-            use_container_width=True
-        )
+    t3, t4 = st.columns([2.6, 1.4])
 
-with t2:
+    with t3:
+        st.markdown("### Detractores")
+        if df_det_sem.empty:
+            st.warning("Sin datos")
+        else:
+            st.dataframe(
+                df_det_sem.drop(columns=["semana_id", "shift"], errors="ignore"),
+                use_container_width=True
+            )
 
-    st.markdown("### % LE por Código")
-
-    if df_cod_sem.empty:
-        st.warning("Sin datos")
-    else:
-        # QUITAR COLUMNAS NO DESEADAS
-        df_show = df_cod_sem.drop(
-            columns=["semana_id", "shift"],
-            errors="ignore"
-        )
-
-        def format_pct(x):
-            if isinstance(x, (int, float)) and pd.notna(x):
-                return f"{x:.1f}%"
-            return x
-
-        formatos = {col: format_pct for col in df_show.columns}
-
-        st.dataframe(
-            df_show.style.format(formatos, na_rep="-"),
-            use_container_width=True
-        )
-
+    with t4:
+        st.markdown("### % LE por Código")
+        if df_cod_sem.empty:
+            st.warning("Sin datos")
+        else:
+            st.dataframe(
+                df_cod_sem.drop(columns=["semana_id", "shift"], errors="ignore"),
+                use_container_width=True
+            )

@@ -10,27 +10,34 @@ import sys
 # ================= CONFIGURACIÓN DE PÁGINA =================
 st.set_page_config(page_title="TIER Dashboard", layout="wide")
 
-# ===== FOOTER FIJO (VISIBLE DESDE PANTALLA NEGRA) =====
+# ===== FOOTER FIJO (NO MOVER)=====
+
 st.markdown(
     """
     <style>
     .app-footer {
         position: fixed;
-        bottom: 0;
+        bottom: 36px;              /* ← SUBIDO para no taparlo */
         left: 0;
         width: 100%;
-        background-color: #000000; /* mismo negro del loading */
+        background-color: #000000;
         color: #9E9E9E;
         font-size: 12px;
         padding: 6px 14px;
         text-align: right;
         z-index: 9999;
         pointer-events: none;
+        box-sizing: border-box;
+    }
+
+    /* Extra: deja espacio abajo al contenedor principal */
+    .block-container {
+        padding-bottom: 80px;
     }
     </style>
 
     <div class="app-footer">
-        Dashboard desarrollado por IT OpEx Ing. Jennifer A. Valdes – Versigent
+        Dashboard desarrollado por IT OpEx - Ing. Jennifer A. Valdes – Versigent
     </div>
     """,
     unsafe_allow_html=True
